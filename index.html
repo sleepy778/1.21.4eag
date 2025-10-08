@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <title>Minecraft Browser Client</title>
@@ -8,42 +8,34 @@
     <h1>Minecraft Browser Client</h1>
     <button id="loginBtn">Sign in with Microsoft</button>
     <script>
-        const loginBtn = document.getElementById('loginBtn');
+        let sessionId = null;
 
-        loginBtn.onclick = async () => {
-            // Step 1: Open Microsoft OAuth (replace with your app/client ID)
-            const oauthUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=http://localhost:3000&scope=XboxLive.signin%20offline_access";
-            const win = window.open(oauthUrl, "_blank", "width=500,height=600");
+        // Handle popup message
+        window.addEventListener("message", (e) => {
+            if (e.data.sessionId) {
+                sessionId = e.data.sessionId;
+                console.log("Logged in! Session:", sessionId);
+                connectToServer();
+            }
+        });
 
-            // In a real app, you’d handle the redirect back to your server to get the code
-            alert("After login, copy the code from the URL and paste here for testing");
-            const code = prompt("Paste OAuth code here:");
+        document.getElementById("loginBtn").onclick = () => {
+            window.open("/login", "_blank", "width=500,height=600");
+        };
 
-            // Step 2: Exchange code for Minecraft token
-            const res = await fetch('/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code })
-            });
-            const result = await res.json();
-            const token = result.access_token;
-            const username = result.selectedProfile.name;
-
-            console.log("Logged in as:", username);
-
-            // Step 3: Connect to a Minecraft server via WebSocket
-            const ws = new WebSocket('ws://localhost:8080');
+        function connectToServer() {
+            const ws = new WebSocket("ws://localhost:8080");
             ws.onopen = () => {
                 ws.send(JSON.stringify({
-                    host: 'play.hypixel.net',    // example server
-                    port: 25565,
-                    username,
-                    token
+                    sessionId,
+                    host: "play.hypixel.net",
+                    port: 25565
                 }));
             };
-
-            ws.onmessage = (event) => console.log('Packet from server:', event.data);
-        };
+            ws.onmessage = (event) => {
+                console.log("Packet from server:", event.data);
+            };
+        }
     </script>
 </body>
 </html>
